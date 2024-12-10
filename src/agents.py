@@ -40,39 +40,36 @@ def market_data_agent(state: AgentState):
     else:
         start_date = data["start_date"]
 
-    # Get the historical price data
-    prices = get_prices(
-        ticker=data["ticker"], 
-        start_date=start_date, 
-        end_date=end_date,
-    )
-
-    # Get the financial metrics
-    financial_metrics = get_financial_metrics(
-        ticker=data["ticker"], 
-        report_period=end_date, 
-        period='ttm', 
-        limit=1,
-    )
-
-    # Get the market news
-    market_news = get_news(
-        query=f"Show me {data['ticker']} news before {end_date} only.",
-        end_date=end_date,
-        max_results=5,
-    )
-
-    return {
-        "messages": messages,
-        "data": {
-            **data, 
-            "prices": prices, 
-            "start_date": start_date, 
-            "end_date": end_date,
-            "financial_metrics": financial_metrics,
-            "market_news": market_news,
+    try:
+        price_data: PriceResponse = get_prices(
+            ticker=data["ticker"],
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        metrics: List[FinancialMetric] = get_financial_metrics(
+            ticker=data["ticker"],
+            report_period=end_date
+        )
+        
+        news: List[NewsArticle] = get_news(
+            query=f"Show me {data['ticker']} news before {end_date} only.",
+            end_date=end_date,
+            max_results=5
+        )
+        
+        return {
+            "messages": messages,
+            "data": {
+                **data,
+                "prices": price_data,
+                "financial_metrics": metrics,
+                "market_news": news
+            }
         }
-    }
+    except (ValueError, requests.RequestException) as e:
+        # Handle errors appropriately
+        raise
 
 ##### Quantitative Agent #####
 def quant_agent(state: AgentState):

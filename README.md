@@ -1,140 +1,139 @@
 # AI Hedge Fund
 
-An AI-powered hedge fund that uses multiple agents to make trading decisions. The system employs several specialized agents working together:
-
-1. Market Data Agent - Gathers and preprocesses market data
-2. Quantitative Agent - Analyzes technical indicators and generates trading signals
-4. Fundamentals Agent - Analyzes fundamental data and generates trading signals
-3. Sentiment Agent - Analyzes market sentiment and generates trading signals
-5. Risk Management Agent - Evaluates portfolio risk and sets position limits
-6. Portfolio Management Agent - Makes final trading decisions and generates orders
-
-## Disclaimer
-
-This project is for **educational and research purposes only**.
-
-- Not intended for real trading or investment
-- No warranties or guarantees provided
-- Past performance does not indicate future results
-- Creator assumes no liability for financial losses
-- Consult a financial advisor for investment decisions
-
-By using this software, you agree to use it solely for learning purposes.
-
-## Table of Contents
-- [Features](#features)
-- [Setup](#setup)
-- [Usage](#usage)
-  - [Running the Hedge Fund](#running-the-hedge-fund)
-  - [Running the Hedge Fund (with Reasoning)](#running-the-hedge-fund-with-reasoning)
-  - [Running the Backtester](#running-the-backtester)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+An AI-powered market analysis tool that combines technical and fundamental analysis using agent-based architecture.
 
 ## Features
 
-- Multi-agent architecture for trading decisions
-- Technical analysis using MACD, RSI, Bollinger Bands, and OBV
-- Fundamental analysis using financial metrics
-- Sentiment analysis using web search
-- Risk management with position sizing recommendations
-- Portfolio management with automated trading decisions
-- Backtesting capabilities with performance analytics
+- Natural language interface for market analysis
+- Technical analysis (momentum, trends, patterns)
+- Fundamental analysis (valuation, financial health)
+- Data from B3 (Brazilian stock exchange)
+- Detailed reasoning from each analysis component
+- Customizable date ranges for analysis
 
 ## Setup
 
-Clone the repository:
+1. Clone the repository:
 ```bash
-git clone https://github.com/your-repo/ai-hedge-fund.git
+git clone https://github.com/PedroDnT/ai-hedge-fund.git
 cd ai-hedge-fund
 ```
 
-1. Install Poetry (if not already installed):
+2. Create and activate virtual environment:
 ```bash
-curl -sSL https://install.python-poetry.org | python3 -
+# Create virtual environment
+python -m venv venv
+
+# Activate on Unix/macOS
+source venv/bin/activate
+
+# Activate on Windows
+.\venv\Scripts\activate
 ```
 
-2. Install dependencies:
+3. Install dependencies:
 ```bash
-poetry install
+pip install -r requirements.txt
 ```
 
-3. Set up your environment variables:
+4. Set up environment variables:
 ```bash
-# Create .env file for your API keys
-cp .env.example .env
-
-export OPENAI_API_KEY='your-api-key-here' # For using LLM
-export FINANCIAL_DATASETS_API_KEY='your-api-key-here' # For fetching stock market data
-export TAVILY_API_KEY='your-api-key-here' # For web search
+# Create .env file with your API keys
+echo "BEARER_TOKEN=your_token_here" > .env
 ```
 
 ## Usage
 
-### Running the Hedge Fund
+### Command Line Interface
 
+Basic usage:
 ```bash
-poetry run python src/agents.py --ticker AAPL
+python analyze.py "What's your technical analysis of PETR4?"
 ```
-You can optionally specify the start and end dates to make decisions for a specific time period.
 
+With date range:
 ```bash
-poetry run python src/agents.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01
+python analyze.py "How's PETR4 performing?" --start-date 2024-01-01 --end-date 2024-03-10
 ```
 
-### Running the Hedge Fund (with Reasoning)
-This will print the reasoning of each agent to the console.
-
+Hide detailed reasoning:
 ```bash
-poetry run python src/agents.py --ticker AAPL --show-reasoning
+python analyze.py "Analyze PETR4 fundamentals" --hide-reasoning
 ```
 
-### Running the Backtester
+### Python API
 
-```bash
-poetry run python src/backtester.py --ticker AAPL
-```
+```python
+from src.agent_orchestrator import analyze_prompt
 
-**Example Output:**
-```
-Starting backtest...
-Date         Ticker Action Quantity    Price         Cash    Stock  Total Value
-----------------------------------------------------------------------
-2024-01-01   AAPL   buy       519.0   192.53        76.93    519.0    100000.00
-2024-01-02   AAPL   hold          0   185.64        76.93    519.0     96424.09
-2024-01-03   AAPL   hold          0   184.25        76.93    519.0     95702.68
-2024-01-04   AAPL   hold          0   181.91        76.93    519.0     94488.22
-2024-01-05   AAPL   hold          0   181.18        76.93    519.0     94109.35
-2024-01-08   AAPL   sell        519   185.56     96382.57      0.0     96382.57
-2024-01-09   AAPL   buy       520.0   185.14       109.77    520.0     96382.57
+# Simple usage
+result = analyze_prompt("What's your technical analysis of PETR4?")
+
+# Advanced usage
+result = analyze_prompt(
+    prompt="How's PETR4 performing? Focus on valuation metrics.",
+    start_date="2024-01-01",
+    end_date="2024-03-10",
+    show_reasoning=True
+)
 ```
 
-You can optionally specify the start and end dates to backtest over a specific time period.
+## Example Prompts
 
-```bash
-poetry run python src/backtester.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01
-```
+1. Technical Analysis:
+   - "What's the momentum and trend analysis for PETR4?"
+   - "Show me PETR4's technical indicators and price patterns"
+   - "Is PETR4 showing any bullish signals?"
 
-## Project Structure 
-```
-ai-hedge-fund/
-├── src/
-│   ├── agents.py # Main agent definitions and workflow
-│   ├── backtester.py # Backtesting functionality
-│   ├── tools.py # Agent tools
-├── pyproject.toml # Poetry configuration
-├── .env.example # Environment variables
-└── README.md # Documentation
-```
+2. Fundamental Analysis:
+   - "What's the valuation and financial health of PETR4?"
+   - "Analyze PETR4's profitability ratios"
+   - "How efficient is PETR4's operations?"
+
+3. Combined Analysis:
+   - "Give me a complete analysis of PETR4"
+   - "Should I invest in PETR4? Consider all factors"
+   - "What's your outlook on PETR4?"
+
+## Architecture
+
+The system uses an agent-based architecture:
+
+1. Market Data Agent:
+   - Fetches market data, financial statements, and company information
+   - Uses DadosDeMercado API for Brazilian market data
+
+2. Technical Analysis Agent:
+   - Analyzes price patterns and momentum
+   - Calculates technical indicators (RSI, MACD, Bollinger Bands, OBV)
+
+3. Fundamental Analysis Agent:
+   - Analyzes financial ratios and company health
+   - Evaluates valuation metrics and profitability
+
+4. Orchestrator:
+   - Coordinates agents based on user prompts
+   - Combines analyses into coherent responses
+   - Provides natural language summaries
+
+## Data Sources
+
+- Market Data: DadosDeMercado API
+- Coverage: Brazilian stocks (B3)
+- Data Types:
+  - Price data
+  - Financial statements
+  - Company information
+  - Market ratios
+  - Financial metrics
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 

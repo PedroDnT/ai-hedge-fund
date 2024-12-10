@@ -1,6 +1,7 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Literal
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
+from enum import Enum
 
 class MarketDataError(Exception):
     """Base exception for market data errors"""
@@ -13,6 +14,24 @@ class InvalidTickerError(MarketDataError):
 class InvalidCVMCodeError(MarketDataError):
     """Raised when CVM code is not found"""
     pass
+
+class StatementType(str, Enum):
+    CONSOLIDATED = "con"
+    INDIVIDUAL = "ind"
+
+class PeriodType(str, Enum):
+    TTM = "ttm"
+    QUARTER = "quarter"
+    YEAR = "year"
+
+class CompanyInfo(BaseModel):
+    name: str
+    trade_name: str
+    cvm_code: str
+    is_b3_listed: bool = True
+    sector: Optional[str] = None
+    subsector: Optional[str] = None
+    segment: Optional[str] = None
 
 class Quote(BaseModel):
     date: datetime
@@ -29,115 +48,134 @@ class Quote(BaseModel):
             return datetime.fromisoformat(v.replace('Z', '+00:00'))
         return v
 
-class CompanyInfo(BaseModel):
-    name: str
-    trade_name: str
-    cvm_code: str
-    is_b3_listed: bool = True
-    ticker: Optional[str] = None
-    sector: Optional[str] = None
-    subsector: Optional[str] = None
-    segment: Optional[str] = None
-
 class FinancialMetric(BaseModel):
-    value: Optional[float] = None
-    currency: Optional[str] = None
+    value: float
+    currency: str
     unit: Optional[str] = None
+
+class BalanceSheet(BaseModel):
+    period: str
+    statement_type: StatementType
+    assets: Dict[str, FinancialMetric]
+    liabilities: Dict[str, FinancialMetric]
+    equity: Dict[str, FinancialMetric]
+
+    @property
+    def total_assets(self) -> float:
+        return sum(asset.value for asset in self.assets.values())
+
+    @property
+    def total_liabilities(self) -> float:
+        return sum(liability.value for liability in self.liabilities.values())
+
+    @property
+    def total_equity(self) -> float:
+        return sum(equity.value for equity in self.equity.values())
+
+class IncomeStatement(BaseModel):
+    period: str
+    statement_type: StatementType
+    period_type: PeriodType
+    revenue: FinancialMetric
+    gross_profit: FinancialMetric
+    operating_income: FinancialMetric
+    net_income: FinancialMetric
+    ebit: FinancialMetric
+    ebitda: FinancialMetric
+
+    @property
+    def gross_margin(self) -> float:
+        return self.gross_profit.value / self.revenue.value if self.revenue.value != 0 else 0
+
+    @property
+    def operating_margin(self) -> float:
+        return self.operating_income.value / self.revenue.value if self.revenue.value != 0 else 0
+
+    @property
+    def net_margin(self) -> float:
+        return self.net_income.value / self.revenue.value if self.revenue.value != 0 else 0
+
+class CashFlow(BaseModel):
+    period: str
+    statement_type: StatementType
+    period_type: PeriodType
+    operating: Dict[str, FinancialMetric]
+    investing: Dict[str, FinancialMetric]
+    financing: Dict[str, FinancialMetric]
+
+    @property
+    def net_operating_cash_flow(self) -> float:
+        return sum(flow.value for flow in self.operating.values())
+
+    @property
+    def net_investing_cash_flow(self) -> float:
+        return sum(flow.value for flow in self.investing.values())
+
+    @property
+    def net_financing_cash_flow(self) -> float:
+        return sum(flow.value for flow in self.financing.values())
 
 class FinancialRatios(BaseModel):
     period: str
-    statement_type: str
-    period_type: str
-    ebit: Union[float, FinancialMetric, None] = None
-    ebitda: Union[float, FinancialMetric, None] = None
-    net_income: Union[float, FinancialMetric, None] = None
+    statement_type: StatementType
+    period_type: PeriodType
+    ebit: Optional[FinancialMetric] = None
+    ebitda: Optional[FinancialMetric] = None
+    net_income: Optional[FinancialMetric] = None
     gross_margin: Optional[float] = Field(None, le=1.0, ge=-1.0)
     ebit_margin: Optional[float] = Field(None, le=1.0, ge=-1.0)
     net_margin: Optional[float] = Field(None, le=1.0, ge=-1.0)
     roe: Optional[float] = None
     roa: Optional[float] = None
-    
-    @validator('*', pre=True)
-    def convert_financial_metric(cls, v):
-        if isinstance(v, dict) and 'value' in v:
-            return v['value']
-        return v
 
 class MarketRatios(BaseModel):
     date: datetime
-    market_cap: Union[float, FinancialMetric, None] = Field(None, ge=0)
-    enterprise_value: Union[float, FinancialMetric, None] = Field(None, ge=0)
+    market_cap: Optional[FinancialMetric] = None
+    enterprise_value: Optional[FinancialMetric] = None
     ev_ebit: Optional[float] = None
     ev_ebitda: Optional[float] = None
     p_e: Optional[float] = None
     p_b: Optional[float] = None
     dividend_yield: Optional[float] = Field(None, ge=0)
-    
+
     @validator('date', pre=True)
     def parse_date(cls, v):
         if isinstance(v, str):
             return datetime.fromisoformat(v.replace('Z', '+00:00'))
         return v
-    
-    @validator('*', pre=True)
-    def convert_financial_metric(cls, v, field):
-        if field.name in ['market_cap', 'enterprise_value'] and isinstance(v, dict):
-            return v.get('value')
+
+class Ticker(BaseModel):
+    ticker: str
+    name: str
+    type: str
+    market: str
+    market_type: str
+    currency: str
+    isin: str
+    issuer_code: str
+    last_quote: Quote
+    penultimate_quote: Optional[Quote] = None
+    change: Optional[float] = None
+
+class Fund(BaseModel):
+    begin_date: datetime
+    benchmark: Optional[str] = None
+    cnpj: str
+    fund_class: str
+    cvm_code: str
+    name: str
+    trade_name: str
+    net_worth: Optional[float] = None
+    shareholders: Optional[int] = None
+    type: str
+    management_fee: Optional[float] = None
+    performance_fee: Optional[float] = None
+    management_fee_description: Optional[str] = None
+    performance_fee_description: Optional[str] = None
+
+    @validator('begin_date', pre=True)
+    def parse_date(cls, v):
+        if isinstance(v, str):
+            return datetime.fromisoformat(v.replace('Z', '+00:00'))
         return v
-
-class BalanceSheet(BaseModel):
-    period: str
-    statement_type: str
-    assets: Dict[str, Union[float, FinancialMetric]]
-    liabilities: Dict[str, Union[float, FinancialMetric]]
-    equity: Dict[str, Union[float, FinancialMetric]]
-
-    @validator('assets', 'liabilities', 'equity', pre=True)
-    def convert_metrics(cls, v):
-        return {k: v['value'] if isinstance(v, dict) and 'value' in v else v 
-                for k, v in v.items()}
-
-    @property
-    def total_assets(self) -> float:
-        return sum(float(v) for v in self.assets.values())
-
-    @property
-    def total_liabilities(self) -> float:
-        return sum(float(v) for v in self.liabilities.values())
-
-    @property
-    def total_equity(self) -> float:
-        return sum(float(v) for v in self.equity.values())
-
-class IncomeStatement(BaseModel):
-    period: str
-    statement_type: str
-    period_type: str
-    revenue: Union[float, FinancialMetric] = Field(ge=0)
-    gross_profit: Union[float, FinancialMetric]
-    operating_income: Union[float, FinancialMetric]
-    net_income: Union[float, FinancialMetric]
-    ebit: Union[float, FinancialMetric]
-    ebitda: Union[float, FinancialMetric]
-
-    @validator('*', pre=True)
-    def convert_financial_metric(cls, v):
-        if isinstance(v, dict) and 'value' in v:
-            return v['value']
-        return v
-
-    @property
-    def gross_margin(self) -> float:
-        revenue = float(self.revenue)
-        return float(self.gross_profit) / revenue if revenue != 0 else 0
-
-    @property
-    def operating_margin(self) -> float:
-        revenue = float(self.revenue)
-        return float(self.operating_income) / revenue if revenue != 0 else 0
-
-    @property
-    def net_margin(self) -> float:
-        revenue = float(self.revenue)
-        return float(self.net_income) / revenue if revenue != 0 else 0
  
